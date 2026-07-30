@@ -61,12 +61,14 @@ export default function App() {
   const phase = pending ? "pending" : healthy ? "healthy" : "degraded";
   const label = pending ? "Checking API" : healthy ? "API healthy" : "API degraded";
   const secondsSinceOk = lastOk ? Math.max(0, Math.round((now - lastOk) / 1000)) : null;
+  const version =
+    state.version && state.version.length > 12 ? state.version.slice(0, 7) : state.version;
 
   return (
     <main className={"screen " + phase}>
       <header className="brand">
-        <span className="brand-mark">NITHUB</span>
-        <span className="brand-sub">Infrastructure for Scale, live demo</span>
+        <span className="brand-mark">eggshells.dev</span>
+        <span className="brand-sub">NITHUB masterclass, live status</span>
       </header>
 
       <section className="strip" role="status" aria-live="polite">
@@ -77,7 +79,7 @@ export default function App() {
       <dl className="facts">
         <div>
           <dt>Serving version</dt>
-          <dd>{healthy ? state.version : "unavailable"}</dd>
+          <dd>{healthy ? version : "unavailable"}</dd>
         </div>
         <div>
           <dt>Container</dt>
