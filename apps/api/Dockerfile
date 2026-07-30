@@ -8,5 +8,10 @@ RUN npm install --omit=dev
 
 COPY apps/api/ ./
 
+# Broken build layer for the recorded clip. The api has no build script, so this
+# fails here with "Missing script: build". The agent reads the build log,
+# identifies this layer, and proposes removing it. Build time failure only.
+RUN npm run build
+
 EXPOSE 3000
 CMD ["node", "app.js"]
