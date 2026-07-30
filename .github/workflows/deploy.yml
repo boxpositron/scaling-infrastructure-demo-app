@@ -58,10 +58,12 @@ jobs:
           context: .
           file: apps/web/Dockerfile
           push: true
-          # VITE_API_BASE is baked into the web bundle. Set it to the api app's
-          # public URL as a repository variable (Settings, Variables).
+          # VITE_API_BASE is baked into the web bundle. It must reach this build
+          # job, so if you override it use a repository variable (not an
+          # environment variable, which the build job cannot see). The fallback
+          # is the live api domain, so this works even with no variable set.
           build-args: |
-            VITE_API_BASE=${{ vars.VITE_API_BASE }}
+            VITE_API_BASE=${{ vars.VITE_API_BASE || 'https://api.eggshells.dev' }}
           tags: |
             ${{ env.IMAGE_BASE }}/web:${{ github.sha }}
             ${{ env.IMAGE_BASE }}/web:latest
@@ -84,8 +86,7 @@ jobs:
         uses: reoclo/run@v2
         with:
           api_key: ${{ secrets.REOCLO_API_KEY }}
-          # Server slug. Swap for the UUID if the action requires it.
-          server_id: nithub-prod-01
+          server_id: ${{ secrets.REOCLO_SERVER_ID }}
           timeout: 300
           env: |
             IMAGE_TAG=${{ github.sha }}
