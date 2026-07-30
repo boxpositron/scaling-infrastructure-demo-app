@@ -6,8 +6,10 @@ const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Read the real client IP when we sit behind the Caddy reverse proxy.
-app.set("trust proxy", true);
+// Trust exactly one proxy hop (Caddy). This reads the real client IP from
+// X-Forwarded-For while ignoring a header a client forges, because only the
+// address Caddy itself adds is honored.
+app.set("trust proxy", 1);
 
 // Version and container id are safe to show. They never contain a secret.
 const APP_VERSION = process.env.APP_VERSION || "dev";
@@ -18,6 +20,10 @@ const CONTAINER = os.hostname();
 // showing an address. It persists to a file so the count survives a redeploy,
 // which is what lets the number resume after the api is fixed instead of reset.
 const TAP_FILE = process.env.TAP_FILE || "/data/taps.json";
+// Cap the number of distinct IPs we track so a flood of addresses cannot grow
+// memory without bound. Past the cap, new addresses still count toward the
+// total, they just do not add a new key.
+const MAX_IPS = 50000;
 let total = 0;
 const byIp = new Map();
 
@@ -25,7 +31,10 @@ function loadTaps() {
   try {
     const data = JSON.parse(fs.readFileSync(TAP_FILE, "utf8"));
     total = data.total || 0;
-    for (const [ip, n] of data.byIp || []) byIp.set(ip, n);
+    for (const [ip, n] of data.byIp || []) {
+      if (byIp.size >= MAX_IPS) break;
+      byIp.set(ip, n);
+    }
     console.log("loaded taps: total " + total + ", devices " + byIp.size);
   } catch (_err) {
     // No file yet, or unreadable. Start fresh and keep going.
@@ -76,9 +85,11 @@ app.get("/status", (_req, res) => {
 app.post("/tap", (req, res) => {
   const ip = req.ip || "unknown";
   total += 1;
-  byIp.set(ip, (byIp.get(ip) || 0) + 1);
+  if (byIp.has(ip) || byIp.size < MAX_IPS) {
+    byIp.set(ip, (byIp.get(ip) || 0) + 1);
+  }
   scheduleSave();
-  res.json({ taps: total, devices: byIp.size, you: byIp.get(ip) });
+  res.json({ taps: total, devices: byIp.size, you: byIp.get(ip) || 0 });
 });
 
 app.get("/", (_req, res) => res.send("nithub demo api"));
