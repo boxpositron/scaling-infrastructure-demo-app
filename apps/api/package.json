@@ -1,0 +1,14 @@
+{
+  "name": "api",
+  "private": true,
+  "version": "1.0.0",
+  "type": "commonjs",
+  "description": "Audience-facing API. Health endpoint plus a non secret status endpoint.",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "node --watch app.js"
+  },
+  "dependencies": {
+    "express": "4.19.2"
+  }
+}
