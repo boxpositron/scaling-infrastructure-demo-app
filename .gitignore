@@ -2,3 +2,19 @@
 /.omc/*
 # except project-scoped skills, which are meant to be committed
 !/.omc/skills/
+
+# Conductor workspace scratch
+/.context/
+
+# dependencies and build output
+node_modules/
+apps/*/dist/
+dist/
+
+# per-app lockfiles the docker dev containers generate (the repo uses pnpm)
+apps/*/package-lock.json
+
+# logs and local env
+*.log
+.env
+.env.local

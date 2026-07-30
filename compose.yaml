@@ -1,0 +1,45 @@
+# Local development stack for the NITHUB demo. Runs the two services on your
+# machine with hot reload. This is NOT how Reoclo deploys them. Reoclo builds
+# each app's Dockerfile natively, per app. For deploys see docs/REOCLO-SETUP.md.
+#
+#   just up      start the stack (web on 5173, api on 3000)
+#   just logs    follow logs
+#   just degrade stop the api to watch the strip go amber
+#   just down    stop everything
+#
+# node_modules live in named volumes so the host pnpm layout never leaks into the
+# containers. First `just up` installs deps once, then it is cached.
+
+services:
+  api:
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c "npm install --no-audit --no-fund --prefer-offline && node --watch app.js"
+    environment:
+      APP_VERSION: dev-local
+      # DATABASE_URL is intentionally unset, so the api is healthy (green).
+      # To watch the strip degrade instead, run: just degrade
+    volumes:
+      - ./apps/api:/app
+      - api_node_modules:/app/node_modules
+    ports:
+      - "3000:3000"
+
+  web:
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c "npm install --no-audit --no-fund --prefer-offline && npm run dev"
+    environment:
+      DOCKER_DEV: "1"
+      # The strip runs in your browser, so this is your host's localhost, which
+      # maps to the api container's published port.
+      VITE_API_BASE: http://localhost:3000
+    volumes:
+      - ./apps/web:/app
+      - web_node_modules:/app/node_modules
+    ports:
+      - "5173:5173"
+
+volumes:
+  api_node_modules:
+  web_node_modules:

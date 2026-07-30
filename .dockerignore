@@ -1,0 +1,10 @@
+# Reoclo builds with the repository root as the Docker context.
+# Keep images small and builds fast by excluding everything a container never needs.
+**/node_modules
+**/dist
+.git
+.github
+.omc
+.context
+.claude
+*.log
