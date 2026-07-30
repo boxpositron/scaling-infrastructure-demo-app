@@ -36,6 +36,10 @@ services:
       DATABASE_URL: ${DATABASE_URL:-}
     expose:
       - "3000"
+    volumes:
+      # Persists the tap counter across redeploys, so the count resumes rather
+      # than resetting after the api is fixed.
+      - tap_data:/data
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:3000/healthz"]
       interval: 10s
@@ -66,3 +70,4 @@ networks:
 volumes:
   caddy_data:
   caddy_config:
+  tap_data:
