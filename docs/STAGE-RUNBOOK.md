@@ -105,3 +105,17 @@ node scripts/make-qr.mjs http://178.105.18.24
 
 A provisional `web-qr.png` for the IP is already in the repo root. Regenerate it once
 the real url exists.
+
+There are two QR codes, do not mix them up:
+
+- `web-qr.png` sends the room to the **live status strip** (the app on their phones).
+- `event-followup-qr.png` sends the room to the **follow-up article**, the companion
+  page that recaps the demo and links the four part series and the code. It points to
+  `https://boxpositron.dev/blog/nithub-infrastructure-for-scale` and is already live.
+  Put this one on your closing slide.
+
+Regenerate the follow-up QR any time with:
+
+```bash
+node scripts/make-qr.mjs https://boxpositron.dev/blog/nithub-infrastructure-for-scale event-followup-qr.png
+```
