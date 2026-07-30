@@ -68,6 +68,24 @@ DATABASE_URL=anything node apps/api/app.js   # boots, /healthz returns 200
 The api only checks that `DATABASE_URL` is present. It never connects to it, so any
 throwaway string is a valid fix. That is what makes the stage secret safe to burn.
 
+## Local dev with Docker and just
+
+If you would rather not run node on the host, the whole stack comes up with one
+command. Needs Docker and `just` (`brew install just`).
+
+```bash
+just up        # web on :5173, api on :3000, hot reload, deps installed on first run
+just logs      # follow both services
+just degrade   # stop the api so the strip visibly goes amber
+just heal      # bring the api back, strip returns to green
+just down      # stop everything
+just           # list every recipe
+```
+
+`just up-prod` builds and runs the real images (web on :8080) exactly as Reoclo
+builds them, for a sanity check before a deploy. This compose setup is for local
+dev only. It is not how Reoclo deploys. See `docs/REOCLO-SETUP.md` for deploys.
+
 ## Docker
 
 Both images build with the repository root as the Docker context, which is how
