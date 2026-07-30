@@ -1,0 +1,12 @@
+{
+  "name": "nithub-demo",
+  "private": true,
+  "version": "0.0.0",
+  "description": "NITHUB Innovation Fair 2026 masterclass demo. Two services, one status strip.",
+  "scripts": {
+    "dev": "pnpm --parallel --filter \"./apps/*\" dev",
+    "dev:api": "pnpm --filter api dev",
+    "dev:web": "pnpm --filter web dev",
+    "build": "pnpm --filter web build"
+  }
+}

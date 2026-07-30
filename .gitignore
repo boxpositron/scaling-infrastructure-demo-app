@@ -2,3 +2,16 @@
 /.omc/*
 # except project-scoped skills, which are meant to be committed
 !/.omc/skills/
+
+# Conductor workspace scratch
+/.context/
+
+# dependencies and build output
+node_modules/
+apps/*/dist/
+dist/
+
+# logs and local env
+*.log
+.env
+.env.local
