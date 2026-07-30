@@ -1,0 +1,54 @@
+# Reoclo external deployment, runs on the server.
+#
+# Images are built and pushed by .github/workflows/deploy.yml, then this file is
+# copied to the server and started with `docker compose up -d` via reoclo/run.
+# reoclo/deploy-sync reads the labels below to map each service to its Reoclo app
+# and attach it to the reoclo-proxy network Reoclo owns.
+#
+# Note on the demo: `docker compose up -d` does not health gate or roll back. A
+# broken image will crash loop here rather than hold the previous container. Keep
+# the failed-deploy and rollback beat on native Reoclo apps. See docs/REOCLO-SETUP.md.
+
+services:
+  api:
+    image: ghcr.io/boxpositron/scaling-infrastructure-demo-app/api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      APP_VERSION: ${IMAGE_TAG:-latest}
+      # Injection point for the demo fix. Absent (empty) means the broken image
+      # throws on boot. Set it in the deploy env to recover.
+      DATABASE_URL: ${DATABASE_URL:-}
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:3000/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    labels:
+      reoclo.managed: "true"
+      reoclo.app: "api"
+    networks:
+      - reoclo-proxy
+
+  web:
+    image: ghcr.io/boxpositron/scaling-infrastructure-demo-app/web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:80/"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    labels:
+      reoclo.managed: "true"
+      reoclo.app: "web"
+    networks:
+      - reoclo-proxy
+
+networks:
+  reoclo-proxy:
+    external: true

@@ -1,0 +1,116 @@
+name: Deploy to Reoclo
+
+# External deployment. Build both images in CI, push to GHCR, then have the
+# server pull and start them via reoclo/run, and register the proxy routes with
+# reoclo/deploy-sync. REOCLO_API_KEY lives in the production environment secrets.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to build and deploy"
+        required: false
+        default: "main"
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_BASE: ghcr.io/${{ github.repository }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.sha }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push api
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_BASE }}/api:${{ github.sha }}
+            ${{ env.IMAGE_BASE }}/api:latest
+
+      - name: Build and push web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          # VITE_API_BASE is baked into the web bundle. Set it to the api app's
+          # public URL as a repository variable (Settings, Variables).
+          build-args: |
+            VITE_API_BASE=${{ vars.VITE_API_BASE }}
+          tags: |
+            ${{ env.IMAGE_BASE }}/web:${{ github.sha }}
+            ${{ env.IMAGE_BASE }}/web:latest
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Encode the compose file for transport
+        id: compose
+        run: echo "b64=$(base64 -w0 compose.deploy.yaml)" >> "$GITHUB_OUTPUT"
+
+      - name: Pull and start on the server
+        uses: reoclo/run@v2
+        with:
+          api_key: ${{ secrets.REOCLO_API_KEY }}
+          # Server slug. Swap for the UUID if the action requires it.
+          server_id: <server-name>
+          timeout: 300
+          env: |
+            IMAGE_TAG=${{ github.sha }}
+            COMPOSE_B64=${{ steps.compose.outputs.b64 }}
+            GHCR_USER=${{ github.actor }}
+            GHCR_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          command: |
+            set -euo pipefail
+            mkdir -p /srv/reoclo/nithub-demo
+            cd /srv/reoclo/nithub-demo
+            echo "$COMPOSE_B64" | base64 -d > compose.deploy.yaml
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            docker compose -f compose.deploy.yaml pull
+            docker compose -f compose.deploy.yaml up -d --remove-orphans
+
+      - name: Sync Reoclo proxy routes
+        id: sync
+        uses: reoclo/deploy-sync@v2
+        with:
+          api_key: ${{ secrets.REOCLO_API_KEY }}
+          compose_file: ./compose.deploy.yaml
+          wait: true
+          wait_timeout: 180
+
+      - name: Report live URLs
+        env:
+          FQDNS: ${{ steps.sync.outputs.synced_fqdns }}
+        run: echo "Live at $FQDNS"
