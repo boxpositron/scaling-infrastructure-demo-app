@@ -1,0 +1,68 @@
+# External deployment with a self managed reverse proxy (Caddy).
+#
+# Images are built and pushed by .github/workflows/deploy.yml, then this file and
+# the Caddyfile are copied to the server and started with docker compose up -d via
+# reoclo/run. Caddy terminates TLS (Let's Encrypt) and routes by host:
+#   eggshells.dev      -> web
+#   api.eggshells.dev  -> api
+# api and web are not published to the host. Only Caddy is, on 80 and 443.
+#
+# Note on the demo: compose up -d does not health gate or roll back. Keep the
+# failed-deploy and rollback beat on native Reoclo apps. See docs/REOCLO-SETUP.md.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - api
+    networks:
+      - appnet
+
+  api:
+    image: ghcr.io/boxpositron/scaling-infrastructure-demo-app/api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      APP_VERSION: ${IMAGE_TAG:-latest}
+      # Injection point for the demo fix. Empty means the broken image throws on boot.
+      DATABASE_URL: ${DATABASE_URL:-}
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:3000/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - appnet
+
+  web:
+    image: ghcr.io/boxpositron/scaling-infrastructure-demo-app/web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:80/"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - appnet
+
+networks:
+  appnet:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:
