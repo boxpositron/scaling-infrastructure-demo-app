@@ -4,6 +4,14 @@ const os = require("os");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// The line that breaks the deploy. DATABASE_URL is absent from the environment
+// on this commit, so the app throws on boot, the health check never passes,
+// and Reoclo's blue-green rollback keeps the previous container serving.
+const DB_URL = process.env.DATABASE_URL;
+if (!DB_URL) {
+  throw new Error("DATABASE_URL is not set");
+}
+
 // Version and container id are safe to show. They never contain a secret.
 const APP_VERSION = process.env.APP_VERSION || "dev";
 const CONTAINER = os.hostname();
