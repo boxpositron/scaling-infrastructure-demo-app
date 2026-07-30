@@ -1,12 +1,46 @@
 :root {
-  color-scheme: dark;
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --ok: #0f9d58;
-  --ok-bg: #06381f;
-  --bad: #f4b400;
-  --bad-bg: #5c2a00;
-  --idle-bg: #0b1220;
-  --ink: #f8fafc;
+  color-scheme: light;
+
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+  --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+
+  /* Eggshell surface. A restrained off-white, warmth carried by the speckle and
+     the accent rather than by a heavy cream tint. */
+  --shell: #f1efe9;
+  --shell-edge: #e7e3d8;
+  --ink: #2b2822;
+  --muted: #5e584a;
+
+  /* A real eggshell is finely speckled. This tiles as a background layer. */
+  --speckle:
+    radial-gradient(circle at 15% 12%, rgba(96, 80, 54, 0.13) 0 1.4px, transparent 1.9px),
+    radial-gradient(circle at 42% 29%, rgba(96, 80, 54, 0.08) 0 1px, transparent 1.4px),
+    radial-gradient(circle at 73% 18%, rgba(96, 80, 54, 0.11) 0 1.6px, transparent 2.1px),
+    radial-gradient(circle at 88% 41%, rgba(96, 80, 54, 0.07) 0 1px, transparent 1.3px),
+    radial-gradient(circle at 27% 61%, rgba(96, 80, 54, 0.10) 0 1.3px, transparent 1.8px),
+    radial-gradient(circle at 57% 77%, rgba(96, 80, 54, 0.09) 0 1.1px, transparent 1.5px),
+    radial-gradient(circle at 9% 84%, rgba(96, 80, 54, 0.08) 0 1px, transparent 1.4px),
+    radial-gradient(circle at 90% 87%, rgba(96, 80, 54, 0.12) 0 1.5px, transparent 2px);
+
+  /* Pending is the default. States below override the accent. */
+  --accent: #a79e8c;
+  --accent-ink: #5e584a;
+  --wash: rgba(120, 110, 90, 0.05);
+}
+
+.screen.healthy {
+  /* Robin's egg. The colour that says egg without saying cream. */
+  --accent: #2fa898;
+  --accent-ink: #0e5a4c;
+  --wash: rgba(47, 168, 152, 0.12);
+}
+
+.screen.degraded {
+  /* A brown speckled egg. */
+  --accent: #d2703e;
+  --accent-ink: #9a3b18;
+  --wash: rgba(210, 112, 62, 0.13);
 }
 
 * {
@@ -24,6 +58,8 @@ body {
 }
 
 .screen {
+  position: relative;
+  isolation: isolate;
   min-height: 100%;
   min-height: 100dvh;
   display: flex;
@@ -33,18 +69,24 @@ body {
   gap: clamp(1.5rem, 5vh, 3rem);
   padding: clamp(1.25rem, 5vw, 3rem);
   text-align: center;
+  font-family: var(--sans);
   color: var(--ink);
-  transition: background-color 400ms ease;
+  background:
+    radial-gradient(130% 100% at 50% -10%, var(--wash) 0%, transparent 55%),
+    radial-gradient(120% 120% at 50% 120%, var(--shell-edge) 0%, var(--shell) 60%);
+  transition: background 500ms ease;
 }
 
-.screen.pending {
-  background: var(--idle-bg);
-}
-.screen.healthy {
-  background: radial-gradient(120% 120% at 50% 0%, #0a5233 0%, var(--ok-bg) 60%);
-}
-.screen.degraded {
-  background: radial-gradient(120% 120% at 50% 0%, #7a3a00 0%, var(--bad-bg) 60%);
+/* Speckle layer, tiled across the whole shell. */
+.screen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: var(--speckle);
+  background-size: 190px 190px;
+  opacity: 0.9;
+  pointer-events: none;
 }
 
 .brand {
@@ -55,60 +97,59 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.15rem;
-  opacity: 0.85;
+  gap: 0.1rem;
 }
 
 .brand-mark {
-  font-weight: 800;
-  letter-spacing: 0.35em;
-  font-size: clamp(0.8rem, 3vw, 1.1rem);
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: clamp(1.05rem, 4vw, 1.5rem);
+  letter-spacing: 0.01em;
+  color: var(--ink);
 }
 
 .brand-sub {
-  font-size: clamp(0.7rem, 2.6vw, 0.95rem);
-  opacity: 0.7;
-  letter-spacing: 0.02em;
+  font-size: clamp(0.68rem, 2.6vw, 0.9rem);
+  letter-spacing: 0.03em;
+  color: var(--muted);
 }
 
 .strip {
   display: flex;
   align-items: center;
-  gap: 0.7em;
+  gap: 0.62em;
   font-size: clamp(2.4rem, 11vw, 5rem);
-  font-weight: 800;
-  letter-spacing: -0.02em;
   line-height: 1;
 }
 
+.label {
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  color: var(--accent-ink);
+  transition: color 500ms ease;
+}
+
+/* A small egg, shell shaded, breathing. */
 .dot {
-  width: 0.72em;
-  height: 0.72em;
-  border-radius: 50%;
-  background: currentColor;
-  box-shadow: 0 0 0.6em 0.1em currentColor;
-  animation: pulse 1.6s ease-in-out infinite;
+  width: 0.62em;
+  height: 0.8em;
+  flex: none;
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  background: var(--accent);
+  box-shadow:
+    0 0 0.5em 0.04em color-mix(in oklab, var(--accent) 50%, transparent),
+    inset -0.06em -0.09em 0.14em rgba(0, 0, 0, 0.16),
+    inset 0.05em 0.07em 0.12em rgba(255, 255, 255, 0.45);
+  animation: breathe 2.6s ease-in-out infinite;
 }
 
-.screen.healthy .strip {
-  color: #6ee7a8;
-}
-.screen.degraded .strip {
-  color: #ffd24a;
-}
-.screen.pending .strip {
-  color: #94a3b8;
-}
-
-@keyframes pulse {
+@keyframes breathe {
   0%,
   100% {
     transform: scale(1);
-    opacity: 0.95;
   }
   50% {
-    transform: scale(0.78);
-    opacity: 0.5;
+    transform: scale(0.9);
   }
 }
 
@@ -127,26 +168,28 @@ body {
 }
 
 .facts dt {
-  font-size: clamp(0.8rem, 3vw, 1.05rem);
+  font-size: clamp(0.72rem, 3vw, 0.95rem);
   text-transform: uppercase;
-  letter-spacing: 0.12em;
-  opacity: 0.65;
+  letter-spacing: 0.14em;
+  color: var(--muted);
 }
 
 .facts dd {
   margin: 0;
-  font-size: clamp(1.4rem, 6.5vw, 2.4rem);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+  font-family: var(--mono);
+  font-size: clamp(1.15rem, 5.5vw, 1.9rem);
+  font-weight: 600;
+  color: var(--ink);
   word-break: break-all;
 }
 
 .note {
-  max-width: 26ch;
-  font-size: clamp(1.05rem, 4.5vw, 1.5rem);
-  line-height: 1.4;
-  opacity: 0.92;
+  max-width: 30ch;
   margin: 0;
+  font-size: clamp(1.02rem, 4.2vw, 1.4rem);
+  line-height: 1.45;
+  color: var(--muted);
+  text-wrap: balance;
 }
 
 .meta {
@@ -154,7 +197,17 @@ body {
   bottom: clamp(1rem, 4vw, 2rem);
   left: 0;
   right: 0;
-  font-size: clamp(0.75rem, 3vw, 1rem);
-  opacity: 0.6;
+  font-size: clamp(0.72rem, 3vw, 0.95rem);
+  color: var(--muted);
   font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot {
+    animation: none;
+  }
+  .screen,
+  .label {
+    transition: none;
+  }
 }
