@@ -17,12 +17,30 @@ Estimated time: about 10 minutes, most of it in the dashboard once.
 
 ---
 
-## Step 0. Merge the green baseline into main
+## Two deployment paths, and which to use when
 
-Merge the open PR (`feature/inspect-files-zip` into `main`) so `main` is the green,
-healthy app. After that, `--ref main` is your green deploy and `--ref broken` is the
-failure. If you would rather not merge yet, deploy `--ref feature/inspect-files-zip`
-for green instead. The rest of this guide assumes `main` is green.
+There are two ways to get these services onto the server, and they are good at
+different things. The demo needs the first one.
+
+- **Native Reoclo apps** (dashboard created). Reoclo builds each app from its
+  Dockerfile on the server, blue-green, health gated, with automatic rollback, and
+  every deploy shows in `reoclo deployments ls`. The failed deploy that holds the old
+  container and rolls back, and the `reoclo deployments list` opening beat, both come
+  from this model. Steps for it are below.
+- **External GitHub Actions** (`.github/workflows/deploy.yml`). CI builds the two
+  images, pushes them to GHCR, and the server pulls and starts them with
+  `docker compose up -d`. Good for hands off green releases. It does not health gate
+  or roll back, so a broken image crash loops instead of holding the old one, and
+  these deploys do not populate `reoclo deployments ls`. Do not run the failure demo
+  through this path. Setup is in the last section of this doc.
+
+For the talk: stage the green and broken deploys on native apps, because the beats
+depend on it. Use the GitHub Actions workflow for healthy releases after the event.
+
+## Step 0. Main is the green baseline
+
+PR #1 is merged, so `main` is the green, healthy app. `--ref main` is your green
+deploy and `--ref broken` is the failure.
 
 ## Step 1. Connect the GitHub provider
 
@@ -167,3 +185,46 @@ If the dashboard flow differs from the table above (field names, where the build
 lives, how the group binds apps), trust the dashboard and adjust. These settings come
 from the Reoclo docs and the CLI surface, not from a dashboard I could see. Verify
 each app's config with `reoclo apps config get <slug>` after you create it.
+
+---
+
+## External deployment via GitHub Actions
+
+`.github/workflows/deploy.yml` builds both images, pushes them to GHCR, has the
+server pull and start them with `reoclo/run`, then registers the proxy routes with
+`reoclo/deploy-sync`. The server compose file is `compose.deploy.yaml`, which carries
+the `reoclo.managed` and `reoclo.app` labels and attaches each service to the
+`reoclo-proxy` network.
+
+Set up once:
+
+1. **Automation key.** In the Reoclo dashboard create an automation API key with the
+   `deploy_session:open` permission. It starts with `rca_`.
+2. **GitHub secret.** Add it as `REOCLO_API_KEY` under the repo's `production`
+   environment (Settings, Environments, production, Secrets). The deploy job already
+   targets `environment: production`.
+3. **Repo variable.** Add `VITE_API_BASE` (Settings, Variables) set to the public URL
+   of the api app. The web bundle bakes it in at build time.
+4. **Registry access.** The workflow logs in to GHCR with the built in token, so
+   private packages work. If you would rather, make the two packages public and the
+   server pull needs no login.
+
+After that, every push to `main` builds, pushes, and deploys. You can also run it by
+hand from the Actions tab with a ref.
+
+Things to verify against your Reoclo, since I could not from here:
+
+- `server_id` in the workflow is the slug `nithub-prod-01`. If the action wants the
+  UUID, it is `0bc86500-40c1-4e67-a4a2-4bf166b6e319`.
+- The compose file lands at `/srv/reoclo/nithub-demo` on the server and starts there.
+  The runner pre-creates `/srv/reoclo/`. Confirm the path and permissions.
+- The `reoclo.app` labels bind each service to a Reoclo app of the same slug (`api`,
+  `web`), so those apps still need to exist for deploy-sync to route them.
+- In this path, `DATABASE_URL` comes from the deploy environment, not the Reoclo
+  secrets manager, so injecting the demo fix means setting it in the environment and
+  redeploying. One more reason to keep the failure demo on native apps.
+
+Why this path does not carry the demo: `docker compose up -d` replaces the running
+container without a health gate, so a broken image crash loops rather than holding the
+old one, and the run does not show in `reoclo deployments ls`. Both of those are load
+bearing in the script, so the failure and rollback beats stay native.
