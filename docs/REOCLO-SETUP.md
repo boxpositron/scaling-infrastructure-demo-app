@@ -196,30 +196,40 @@ server pull and start them with `reoclo/run`, then registers the proxy routes wi
 the `reoclo.managed` and `reoclo.app` labels and attaches each service to the
 `reoclo-proxy` network.
 
-Set up once:
+Domain plan (`eggshells.dev`, grey clouded on Cloudflare so Reoclo terminates TLS):
 
-1. **Automation key.** In the Reoclo dashboard create an automation API key with the
-   `deploy_session:open` permission. It starts with `rca_`.
-2. **GitHub secret.** Add it as `REOCLO_API_KEY` under the repo's `production`
-   environment (Settings, Environments, production, Secrets). The deploy job already
-   targets `environment: production`.
-3. **Repo variable.** Add `VITE_API_BASE` (Settings, Variables) set to the public URL
-   of the api app. The web bundle bakes it in at build time.
-4. **Registry access.** The workflow logs in to GHCR with the built in token, so
-   private packages work. If you would rather, make the two packages public and the
-   server pull needs no login.
+- `eggshells.dev` maps to the `web` app. This is the audience URL behind the QR.
+- `api.eggshells.dev` maps to the `api` app. The strip polls it, which is why the web
+  build bakes in `VITE_API_BASE=https://api.eggshells.dev`.
+- Both A records already resolve to the server (<server-ip>). Keep them grey, not
+  orange, so Reoclo can issue Let's Encrypt certs directly.
 
-After that, every push to `main` builds, pushes, and deploys. You can also run it by
-hand from the Actions tab with a ref.
+Already set, confirmed:
+
+- `REOCLO_API_KEY` and `REOCLO_SERVER_ID` in the repo's `production` environment
+  secrets. The deploy job targets `environment: production` and reads both.
+
+Still to do on the Reoclo side:
+
+- Bind the two domains to their apps: `eggshells.dev` to `web`, `api.eggshells.dev`
+  to `api`. Register `api.eggshells.dev` on Reoclo if only the apex is registered.
+- The `api` and `web` apps need to exist in Reoclo so deploy-sync can bind them
+  through the `reoclo.app` labels in `compose.deploy.yaml`.
+
+Optional:
+
+- `VITE_API_BASE` is hardcoded to `https://api.eggshells.dev` as a fallback in the
+  workflow, so it works with no variable. To override, set a REPOSITORY variable, not
+  an environment one, because the build job cannot read environment variables.
+- Registry access: the workflow logs in to GHCR with the built in token, so private
+  packages work. You can make the two packages public instead.
+
+Trigger it: merge PR #3, or push to `main`, or run it by hand from the Actions tab.
 
 Things to verify against your Reoclo, since I could not from here:
 
-- `server_id` in the workflow is the slug `<server-name>`. If the action wants the
-  UUID, it is `0bc86500-40c1-4e67-a4a2-4bf166b6e319`.
 - The compose file lands at `/srv/reoclo/nithub-demo` on the server and starts there.
   The runner pre-creates `/srv/reoclo/`. Confirm the path and permissions.
-- The `reoclo.app` labels bind each service to a Reoclo app of the same slug (`api`,
-  `web`), so those apps still need to exist for deploy-sync to route them.
 - In this path, `DATABASE_URL` comes from the deploy environment, not the Reoclo
   secrets manager, so injecting the demo fix means setting it in the environment and
   redeploying. One more reason to keep the failure demo on native apps.
