@@ -1,0 +1,25 @@
+# Production parity. Builds and runs the REAL images locally, exactly as Reoclo
+# builds them, with the repository root as the Docker context. Use it to sanity
+# check an image before a deploy. This is not a deployment mechanism either.
+#
+#   just up-prod     build and run (web on 8080, api on 3000)
+#   just down-prod   stop it
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      APP_VERSION: prod-local
+    ports:
+      - "3000:3000"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_BASE: http://localhost:3000
+    ports:
+      - "8080:80"

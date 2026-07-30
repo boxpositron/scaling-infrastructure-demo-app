@@ -11,6 +11,9 @@ node_modules/
 apps/*/dist/
 dist/
 
+# per-app lockfiles the docker dev containers generate (the repo uses pnpm)
+apps/*/package-lock.json
+
 # logs and local env
 *.log
 .env
