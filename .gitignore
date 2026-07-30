@@ -1,0 +1,4 @@
+# oh-my-claudecode runtime state (state, logs, plans, research, artifacts, memory)
+/.omc/*
+# except project-scoped skills, which are meant to be committed
+!/.omc/skills/
