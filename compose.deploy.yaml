@@ -1,22 +1,38 @@
-# Reoclo external deployment, runs on the server.
+# External deployment with a self managed reverse proxy (Caddy).
 #
-# Images are built and pushed by .github/workflows/deploy.yml, then this file is
-# copied to the server and started with `docker compose up -d` via reoclo/run.
-# reoclo/deploy-sync reads the labels below to map each service to its Reoclo app
-# and attach it to the reoclo-proxy network Reoclo owns.
+# Images are built and pushed by .github/workflows/deploy.yml, then this file and
+# the Caddyfile are copied to the server and started with docker compose up -d via
+# reoclo/run. Caddy terminates TLS (Let's Encrypt) and routes by host:
+#   eggshells.dev      -> web
+#   api.eggshells.dev  -> api
+# api and web are not published to the host. Only Caddy is, on 80 and 443.
 #
-# Note on the demo: `docker compose up -d` does not health gate or roll back. A
-# broken image will crash loop here rather than hold the previous container. Keep
-# the failed-deploy and rollback beat on native Reoclo apps. See docs/REOCLO-SETUP.md.
+# Note on the demo: compose up -d does not health gate or roll back. Keep the
+# failed-deploy and rollback beat on native Reoclo apps. See docs/REOCLO-SETUP.md.
 
 services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - api
+    networks:
+      - appnet
+
   api:
     image: ghcr.io/boxpositron/scaling-infrastructure-demo-app/api:${IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
       APP_VERSION: ${IMAGE_TAG:-latest}
-      # Injection point for the demo fix. Absent (empty) means the broken image
-      # throws on boot. Set it in the deploy env to recover.
+      # Injection point for the demo fix. Empty means the broken image throws on boot.
       DATABASE_URL: ${DATABASE_URL:-}
     expose:
       - "3000"
@@ -26,11 +42,8 @@ services:
       timeout: 3s
       retries: 3
       start_period: 5s
-    labels:
-      reoclo.managed: "true"
-      reoclo.app: "api"
     networks:
-      - reoclo-proxy
+      - appnet
 
   web:
     image: ghcr.io/boxpositron/scaling-infrastructure-demo-app/web:${IMAGE_TAG:-latest}
@@ -43,12 +56,13 @@ services:
       timeout: 3s
       retries: 3
       start_period: 5s
-    labels:
-      reoclo.managed: "true"
-      reoclo.app: "web"
     networks:
-      - reoclo-proxy
+      - appnet
 
 networks:
-  reoclo-proxy:
-    external: true
+  appnet:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:
