@@ -190,31 +190,33 @@ each app's config with `reoclo apps config get <slug>` after you create it.
 
 ## External deployment via GitHub Actions
 
-`.github/workflows/deploy.yml` builds both images, pushes them to GHCR, has the
-server pull and start them with `reoclo/run`, then registers the proxy routes with
-`reoclo/deploy-sync`. The server compose file is `compose.deploy.yaml`, which carries
-the `reoclo.managed` and `reoclo.app` labels and attaches each service to the
-`reoclo-proxy` network.
+`.github/workflows/deploy.yml` builds both images, pushes them to GHCR, then has the
+server pull and start them with `reoclo/run`. A self managed Caddy reverse proxy
+(`Caddyfile`, started by `compose.deploy.yaml`) terminates TLS with Let's Encrypt and
+routes by host. There is no Reoclo managed proxy and no deploy-sync.
 
-Domain plan (`eggshells.dev`, grey clouded on Cloudflare so Reoclo terminates TLS):
+Domain plan (`eggshells.dev`, grey clouded on Cloudflare so Caddy terminates TLS):
 
-- `eggshells.dev` maps to the `web` app. This is the audience URL behind the QR.
-- `api.eggshells.dev` maps to the `api` app. The strip polls it, which is why the web
-  build bakes in `VITE_API_BASE=https://api.eggshells.dev`.
-- Both A records already resolve to the server (<server-ip>). Keep them grey, not
-  orange, so Reoclo can issue Let's Encrypt certs directly.
+- `eggshells.dev` routes to `web`. This is the audience URL behind the QR.
+- `api.eggshells.dev` routes to `api`. The strip polls it, which is why the web build
+  bakes in `VITE_API_BASE=https://api.eggshells.dev`.
+- `www.eggshells.dev` redirects to the apex.
+- All three A records already resolve to the server (<server-ip>). Keep them grey,
+  not orange, so Caddy can complete the ACME challenge and issue the certs.
 
 Already set, confirmed:
 
 - `REOCLO_API_KEY` and `REOCLO_SERVER_ID` in the repo's `production` environment
   secrets. The deploy job targets `environment: production` and reads both.
 
-Still to do on the Reoclo side:
+Still to do:
 
-- Bind the two domains to their apps: `eggshells.dev` to `web`, `api.eggshells.dev`
-  to `api`. Register `api.eggshells.dev` on Reoclo if only the apex is registered.
-- The `api` and `web` apps need to exist in Reoclo so deploy-sync can bind them
-  through the `reoclo.app` labels in `compose.deploy.yaml`.
+- Make sure ports 80 and 443 on the server are free for Caddy, meaning the Reoclo
+  managed proxy is off for these. You switched to an externally managed proxy, so it
+  should be.
+- On the first deploy Caddy provisions the certs. Give it a few seconds, then
+  `https://eggshells.dev` and `https://api.eggshells.dev` are live. No Reoclo app or
+  domain binding is needed, because Caddy routes by host.
 
 Optional:
 
