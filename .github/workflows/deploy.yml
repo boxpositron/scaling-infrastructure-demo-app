@@ -1,0 +1,114 @@
+name: Deploy to Reoclo
+
+# External deployment. Build both images in CI, push to GHCR, then have the
+# server pull and start them via reoclo/run. A self managed Caddy reverse proxy on
+# the server terminates TLS and routes by host. REOCLO_API_KEY and REOCLO_SERVER_ID
+# live in the production environment secrets.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to build and deploy"
+        required: false
+        default: "main"
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_BASE: ghcr.io/${{ github.repository }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.sha }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push api
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_BASE }}/api:${{ github.sha }}
+            ${{ env.IMAGE_BASE }}/api:latest
+
+      - name: Build and push web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          # VITE_API_BASE is baked into the web bundle. It must reach this build
+          # job, so if you override it use a repository variable (not an
+          # environment variable, which the build job cannot see). The fallback
+          # is the live api domain, so this works even with no variable set.
+          build-args: |
+            VITE_API_BASE=${{ vars.VITE_API_BASE || 'https://api.eggshells.dev' }}
+          tags: |
+            ${{ env.IMAGE_BASE }}/web:${{ github.sha }}
+            ${{ env.IMAGE_BASE }}/web:latest
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Encode compose file and Caddyfile for transport
+        id: files
+        run: |
+          echo "compose_b64=$(base64 -w0 compose.deploy.yaml)" >> "$GITHUB_OUTPUT"
+          echo "caddy_b64=$(base64 -w0 Caddyfile)" >> "$GITHUB_OUTPUT"
+
+      - name: Pull and start on the server
+        uses: reoclo/run@v2
+        with:
+          api_key: ${{ secrets.REOCLO_API_KEY }}
+          server_id: ${{ secrets.REOCLO_SERVER_ID }}
+          timeout: 300
+          env: |
+            IMAGE_TAG=${{ github.sha }}
+            COMPOSE_B64=${{ steps.files.outputs.compose_b64 }}
+            CADDY_B64=${{ steps.files.outputs.caddy_b64 }}
+            GHCR_USER=${{ github.actor }}
+            GHCR_TOKEN=${{ secrets.GITHUB_TOKEN }}
+          command: |
+            set -euo pipefail
+            mkdir -p /srv/reoclo/nithub-demo
+            cd /srv/reoclo/nithub-demo
+            echo "$COMPOSE_B64" | base64 -d > compose.deploy.yaml
+            echo "$CADDY_B64" | base64 -d > Caddyfile
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            docker compose -f compose.deploy.yaml pull
+            docker compose -f compose.deploy.yaml up -d --remove-orphans
+
+      - name: Report
+        run: |
+          echo "Deployed. Caddy is serving:"
+          echo "  https://eggshells.dev      (web)"
+          echo "  https://api.eggshells.dev  (api)"

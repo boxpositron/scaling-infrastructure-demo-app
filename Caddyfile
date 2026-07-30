@@ -1,0 +1,14 @@
+# Self managed reverse proxy for the demo. Caddy provisions Let's Encrypt certs
+# automatically. Cloudflare is grey clouded, so ACME challenges reach the server.
+
+eggshells.dev {
+	reverse_proxy web:80
+}
+
+api.eggshells.dev {
+	reverse_proxy api:3000
+}
+
+www.eggshells.dev {
+	redir https://eggshells.dev{uri}
+}
