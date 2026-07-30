@@ -15,7 +15,13 @@ async function fetchStatus() {
     });
     if (!res.ok) return { healthy: false };
     const data = await res.json();
-    return { healthy: true, version: data.version, container: data.container };
+    return {
+      healthy: true,
+      version: data.version,
+      container: data.container,
+      taps: data.taps,
+      devices: data.devices,
+    };
   } catch (_err) {
     // Network error, timeout, or the api being unreachable all land here.
     // The page stays up either way. That is the whole point on stage.
@@ -36,7 +42,9 @@ function useClock() {
 
 export default function App() {
   const [state, setState] = useState({ healthy: null });
+  const [counts, setCounts] = useState({ taps: null, devices: 0 });
   const [lastOk, setLastOk] = useState(null);
+  const [popping, setPopping] = useState(false);
   const mounted = useRef(true);
   const now = useClock();
 
@@ -46,7 +54,14 @@ export default function App() {
       const next = await fetchStatus();
       if (!mounted.current) return;
       setState(next);
-      if (next.healthy) setLastOk(Date.now());
+      if (next.healthy) {
+        setLastOk(Date.now());
+        // Only update the count on a healthy read. When the api is down the
+        // number stays frozen at its last known value.
+        if (typeof next.taps === "number") {
+          setCounts({ taps: next.taps, devices: next.devices || 0 });
+        }
+      }
     }
     tick();
     const id = setInterval(tick, POLL_MS);
@@ -64,6 +79,25 @@ export default function App() {
   const version =
     state.version && state.version.length > 12 ? state.version.slice(0, 7) : state.version;
 
+  async function tap() {
+    if (!healthy) return;
+    try {
+      const res = await fetch(API_BASE + "/tap", { method: "POST", cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!mounted.current) return;
+      setCounts({ taps: data.taps, devices: data.devices || 0 });
+      setPopping(true);
+    } catch (_err) {
+      // The api is unreachable. The next poll shows the button as paused.
+    }
+  }
+
+  const countLabel =
+    counts.devices > 0
+      ? "taps from " + counts.devices + (counts.devices === 1 ? " device" : " devices")
+      : "taps so far";
+
   return (
     <main className={"screen " + phase}>
       <header className="brand">
@@ -74,6 +108,20 @@ export default function App() {
       <section className="strip" role="status" aria-live="polite">
         <span className="dot" aria-hidden="true" />
         <span className="label">{label}</span>
+      </section>
+
+      <section className="counter">
+        <p
+          className={"count-num" + (popping ? " pop" : "")}
+          onAnimationEnd={() => setPopping(false)}
+        >
+          {counts.taps === null ? "—" : counts.taps.toLocaleString()}
+        </p>
+        <p className="count-label">{countLabel}</p>
+        <button className="egg-btn" onClick={tap} disabled={!healthy}>
+          <span className="egg-btn-egg" aria-hidden="true" />
+          <span>{healthy ? "Tap the egg" : "Paused, API down"}</span>
+        </button>
       </section>
 
       <dl className="facts">
@@ -89,8 +137,8 @@ export default function App() {
 
       <p className="note">
         {healthy
-          ? "The API is up and serving this build."
-          : "The web app is still serving. The API is unavailable, and production did not go down."}
+          ? "Every tap is counted by the API. If the API goes down the count freezes, and it resumes where it left off once the API is back."
+          : "The page is still up. The API is down, so no taps are counted right now, and production did not go down."}
       </p>
 
       <footer className="meta">
