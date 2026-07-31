@@ -8,6 +8,13 @@ approval gate. The stop is the point.
 The beat by beat script is in `demo-script-segment-5.md`. Read it before changing
 anything about the failure behaviour, because the failure behaviour is choreography.
 
+## The talk
+
+The deck and the write-up both live on the portfolio:
+
+- Slides: [Building Technology Infrastructure for Scale](https://boxpositron.dev/presentations/infrastructure-for-scale)
+- Write-up: [A Bounded Agent Near a Live Deploy: What It Fixed, and What I Kept for Myself](https://boxpositron.dev/blog/nithub-infrastructure-for-scale), the companion article for the room, with the four part series linked from it.
+
 ## What is here
 
 ```
@@ -28,7 +35,7 @@ spare hour belongs to the slide deck, which outranks this repo.
 
 | Branch | State | Used for |
 | --- | --- | --- |
-| `feature/inspect-files-zip` | Green baseline, healthy | The PR into `main`. Merge it, then this is your green deploy. |
+| `main` | Green baseline, healthy | Your green deploy. Ship it first so a passing deploy sits in the history. |
 | `broken` | Green plus a required `DATABASE_URL` that is not set | The deploy that fails and rolls back on stage. |
 | `broken-dockerfile` | Green plus a failing build layer | The 40 second build break clip. |
 
