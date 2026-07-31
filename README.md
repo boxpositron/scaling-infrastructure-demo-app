@@ -1,12 +1,9 @@
 # NITHUB Masterclass Demo
 
 Live demo app for "Building Technology Infrastructure for Scale," NITHUB Innovation
-Fair 2026. Two deployable services and one status strip, in service of segment 5:
-an AI agent diagnosing a failing deploy, proposing a fix, and stopping at an
-approval gate. The stop is the point.
-
-The beat by beat script is in `demo-script-segment-5.md`. Read it before changing
-anything about the failure behaviour, because the failure behaviour is choreography.
+Fair 2026. Two deployable services and one status strip. The demo is an AI agent
+diagnosing a failing deploy, proposing a fix, and stopping at an approval gate. The
+stop is the point.
 
 ## The talk
 
@@ -25,18 +22,17 @@ apps/
          degrades visibly when the API is unreachable, stays up itself.
 docs/
   REOCLO-SETUP.md    The Reoclo dashboard and CLI steps to stage the demo.
-  STAGE-RUNBOOK.md   On the day pre-flight, beat mapping, and fallbacks.
+  STAGE-RUNBOOK.md   Pre-flight checks, deploy commands, and fallbacks.
 ```
 
-Two apps, one status strip. Scope is frozen. Please do not add features here; any
-spare hour belongs to the slide deck, which outranks this repo.
+Two apps, one status strip. That is the entire scope.
 
 ## The branches (they map to the demo)
 
 | Branch | State | Used for |
 | --- | --- | --- |
 | `main` | Green baseline, healthy | Your green deploy. Ship it first so a passing deploy sits in the history. |
-| `broken` | Green plus a required `DATABASE_URL` that is not set | The deploy that fails and rolls back on stage. |
+| `broken` | Green plus a required `DATABASE_URL` that is not set | The deploy that fails its health check and rolls back. |
 | `broken-dockerfile` | Green plus a failing build layer | The 40 second build break clip. |
 
 Green and broken share the same green base commit, so the only difference between
@@ -120,8 +116,3 @@ reoclo apps deploy api --ref main --wait      # green, passes
 reoclo apps deploy web --ref main --wait      # green, passes
 reoclo apps deploy api --ref broken --wait    # fails health check, rolls back
 ```
-
-## Style
-
-No em dashes anywhere: not in code, comments, UI copy, commit messages, or docs.
-Use commas, periods, or parentheses. This is a global rule for this speaker.
