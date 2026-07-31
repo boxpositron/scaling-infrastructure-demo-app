@@ -22,7 +22,6 @@ apps/
          degrades visibly when the API is unreachable, stays up itself.
 docs/
   REOCLO-SETUP.md    The Reoclo dashboard and CLI steps to stage the demo.
-  STAGE-RUNBOOK.md   Pre-flight checks, deploy commands, and fallbacks.
 ```
 
 Two apps, one status strip. That is the entire scope.

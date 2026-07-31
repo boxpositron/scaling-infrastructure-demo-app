@@ -8,7 +8,7 @@ a dashboard action. Everything after that is CLI.
 Known facts, already verified:
 
 - Org: `nithub-demo` (you are Admin). `reoclo whoami` confirms it.
-- Server: `nithub-prod-01`, IP `178.105.18.24`, runner connected and healthy.
+- Server: `<server-name>`, IP `<server-ip>`, runner connected and healthy.
 - Repo: `boxpositron/scaling-infrastructure-demo-app`.
 - Branches pushed: `feature/inspect-files-zip` (green, open as a PR into main),
   `broken`, `broken-dockerfile`.
@@ -61,7 +61,7 @@ reoclo providers sync github
 ## Step 2. Create the application group and two apps (dashboard)
 
 In the dashboard, Application Groups, create a group on the shared repo
-`boxpositron/scaling-infrastructure-demo-app`, server `nithub-prod-01`. Add two
+`boxpositron/scaling-infrastructure-demo-app`, server `<server-name>`. Add two
 applications to it. Use these exact settings.
 
 ### App: api
@@ -130,7 +130,7 @@ Confirm the history reads green then failed:
 
 ```bash
 reoclo deployments ls
-reoclo logs tail --server nithub-prod-01 --source container --name api | tail -40
+reoclo logs tail --server <server-name> --source container --name api | tail -40
 ```
 
 ## Step 5. Prepare the fix (do not apply it until the stage moment)
@@ -143,14 +143,14 @@ Two ways to hold the value. Pick one and rehearse it.
 Env var on the app (simplest):
 
 ```bash
-reoclo apps config set api --env DATABASE_URL=postgres://demo:demo@db.internal:5432/demo
+reoclo apps config set api --env DATABASE_URL=postgres://<user>:<pass>@<host>:5432/<db>
 reoclo apps deploy api --ref broken --wait     # now green, health check passes
 ```
 
 Or via the secrets manager, if you want to show that surface:
 
 ```bash
-reoclo secrets set DATABASE_URL --project nithub-demo --value postgres://demo:demo@db.internal:5432/demo
+reoclo secrets set DATABASE_URL --project nithub-demo --value postgres://<user>:<pass>@<host>:5432/<db>
 # then wire the secret into the api app env in the dashboard, and redeploy
 ```
 
@@ -201,7 +201,7 @@ Domain plan (`eggshells.dev`, grey clouded on Cloudflare so Caddy terminates TLS
 - `api.eggshells.dev` routes to `api`. The strip polls it, which is why the web build
   bakes in `VITE_API_BASE=https://api.eggshells.dev`.
 - `www.eggshells.dev` redirects to the apex.
-- All three A records already resolve to the server (178.105.18.24). Keep them grey,
+- All three A records already resolve to the server (<server-ip>). Keep them grey,
   not orange, so Caddy can complete the ACME challenge and issue the certs.
 
 Already set, confirmed:
